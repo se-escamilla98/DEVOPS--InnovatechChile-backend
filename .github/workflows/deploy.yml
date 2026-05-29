@@ -1,0 +1,59 @@
+name: Backend CI/CD Pipeline
+
+# El pipeline se activa SOLO cuando hay push en la rama deploy
+# Esto es exactamente lo que pide la evaluación
+on:
+  push:
+    branches:
+      - deploy
+
+jobs:
+  build-and-deploy:
+    # El pipeline corre en un servidor Ubuntu proporcionado por GitHub
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Descarga el código del repositorio en el servidor de GitHub
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      # Paso 2: Inicia sesión en Docker Hub usando los secrets configurados
+      # Nunca aparecen las credenciales reales en el código
+      - name: Login en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Paso 3: Construye la imagen Docker y la publica en Docker Hub
+      # El tag "latest" siempre apunta a la versión más reciente
+      - name: Build y Push imagen Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/innovatech-backend:latest
+
+      # Paso 4: Se conecta a EC2 por SSH y actualiza el contenedor
+      # Descarga la nueva imagen y reinicia el servicio automáticamente
+      - name: Deploy en EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            # Navega a la carpeta del proyecto en EC2
+            cd ~/innovatech-backend
+            
+            # Descarga la imagen más reciente desde Docker Hub
+            docker pull ${{ secrets.DOCKER_USERNAME }}/innovatech-backend:latest
+            
+            # Baja los contenedores actuales
+            docker compose down
+            
+            # Levanta los contenedores con la nueva imagen
+            docker compose up -d
+            
+            # Elimina imágenes antiguas para liberar espacio en EC2
+            docker image prune -f
