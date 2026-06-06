@@ -1,5 +1,5 @@
-// dotenv carga las variables del archivo .env al proceso de Node
-// Debe llamarse ANTES de cualquier otra cosa
+
+
 require('dotenv').config();
 
 const express = require('express');
@@ -7,20 +7,17 @@ const { Pool } = require('pg');
 
 const app = express();
 
-// Este middleware permite que Express entienda JSON en el body de las peticiones
+
 app.use(express.json());
 
-// CORS: permite que el Frontend (que corre en otro puerto/dominio) haga peticiones al Backend
-// En producción deberías restringir el origen, pero para esta evaluación está bien así
+
+
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   next();
 });
 
-// Pool de conexiones a PostgreSQL
-// Los valores vienen de variables de entorno, NUNCA hardcodeados
-// Esto es exactamente lo que te van a preguntar sobre gestión de secrets
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -30,7 +27,7 @@ const pool = new Pool({
 });
 
 // Endpoint de salud: sirve para verificar que el servidor está vivo
-// GitHub Actions y AWS lo pueden usar para saber si el deploy fue exitoso
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend Innovatech funcionando' });
 });
@@ -70,8 +67,8 @@ app.post('/api/productos', async (req, res) => {
   }
 });
 
-// El puerto viene de variable de entorno, con 8080 como valor por defecto
-// 8080 coincide exactamente con el Security Group SG_BACK del diagrama
+
+
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
