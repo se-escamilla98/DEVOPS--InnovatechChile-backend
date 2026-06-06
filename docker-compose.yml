@@ -1,16 +1,14 @@
 version: '3.8'
 
 services:
-  # Servicio del Backend (nuestra API Express)
+  # Servicio del Backend 
   backend:
     build: .
     container_name: innovatech_backend
     ports:
-      - "8080:8080"  # puerto_host:puerto_contenedor
-    environment:
-      # Las variables de entorno se inyectan aquí, no dentro de la imagen.
-      # En producción (EC2) estas vendrán de GitHub Secrets.
-      DB_HOST: db         # "db" es el nombre del servicio de abajo, Docker lo resuelve automáticamente
+      - "8080:8080"  
+    environment:  
+      DB_HOST: db         
       DB_PORT: 5432
       DB_NAME: innovatech_db
       DB_USER: innovatech_user
@@ -22,9 +20,9 @@ services:
     networks:
       - innovatech_network
 
-  # Servicio de Base de Datos (PostgreSQL)
+  # Servicio de Base de Datos 
   db:
-    image: postgres:15-alpine  # Usamos imagen oficial, no necesitamos Dockerfile propio
+    image: postgres:15-alpine 
     container_name: innovatech_db
     environment:
       POSTGRES_DB: innovatech_db
@@ -32,27 +30,18 @@ services:
       POSTGRES_PASSWORD: innovatech_pass
     volumes:
       # Named volume: persiste los datos aunque el contenedor se destruya.
-      # Esto responde al IE3 de la rúbrica sobre persistencia de datos.
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      # Docker verifica cada 5 segundos si PostgreSQL está listo para aceptar conexiones.
-      # Sin esto, el backend podría intentar conectarse antes de que la DB esté lista.
       test: ["CMD-SHELL", "pg_isready -U innovatech_user -d innovatech_db"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
       - innovatech_network
-
-# Named volume declarado a nivel raíz.
-# Docker gestiona dónde se almacena físicamente en el host.
-# A diferencia de un bind mount, no depende de una ruta específica del sistema operativo,
-# lo que lo hace portable entre Linux, Mac y Windows.
 volumes:
   postgres_data:
 
 # Red interna privada entre servicios.
-# El contenedor "db" NO es accesible desde fuera, igual que el SG_DATA de tu diagrama.
 networks:
   innovatech_network:
     driver: bridge
