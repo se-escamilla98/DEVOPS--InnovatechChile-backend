@@ -1,49 +1,62 @@
-name: Backend CI/CD Pipeline - EP3
+name: Backend CI/CD Pipeline - EP3 (ECS Fargate)
 
+# Se activa SOLO con push a la rama deploy.
+# Trabajar en main no dispara despliegues accidentales.
 on:
   push:
     branches:
       - deploy
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: innovatech-backend
+  ECS_CLUSTER: innovatech-cluster
+  ECS_SERVICE: backend-service
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # Paso 1: Descarga el código de la rama deploy
       - name: Checkout código
         uses: actions/checkout@v4
 
+      # Paso 2: Configura credenciales de AWS desde GitHub Secrets.
+      # Incluye el session token porque el Learner Lab usa credenciales temporales.
       - name: Configurar credenciales AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
+      # Paso 3: Login en Amazon ECR con token temporal automático
       - name: Login en Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Paso 4: Build y push de la imagen.
+      # Tag con el SHA del commit (trazabilidad exacta) + latest.
       - name: Build y Push imagen a ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build \
-            --no-cache \
-            -t $ECR_REGISTRY/innovatech-backend:$IMAGE_TAG \
-            -t $ECR_REGISTRY/innovatech-backend:latest \
-            .
-          docker push $ECR_REGISTRY/innovatech-backend:$IMAGE_TAG
-          docker push $ECR_REGISTRY/innovatech-backend:latest
-          echo "Imagen publicada: $ECR_REGISTRY/innovatech-backend:$IMAGE_TAG"
+          docker build --no-cache \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      - name: Deploy en ECS
+      # Paso 5: Rolling deploy en ECS. force-new-deployment hace que
+      # ECS levante la tarea nueva y la deje sana antes de bajar la vieja.
+      # Resultado: cero downtime.
+      - name: Deploy en ECS (rolling update)
         run: |
           aws ecs update-service \
-            --cluster innovatech-cluster \
-            --service backend-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
             --force-new-deployment \
-            --region us-east-1
-          echo "Deploy iniciado en ECS Fargate"
+            --region ${{ env.AWS_REGION }}

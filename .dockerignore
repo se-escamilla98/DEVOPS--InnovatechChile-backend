@@ -1,0 +1,24 @@
+# Dependencias: se reinstalan dentro del contenedor con npm ci
+node_modules
+npm-debug.log
+
+# Variables de entorno y secretos: NUNCA entran a la imagen
+.env
+.env.*
+
+# Control de versiones y CI
+.git
+.github
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Documentación y archivos de editor
+README.md
+*.md
+.vscode
+.idea
+.DS_Store
